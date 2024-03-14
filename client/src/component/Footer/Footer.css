@@ -1,0 +1,36 @@
+
+.footer-container {
+    background-color: #4a90e2;
+    color: white;
+    padding: 15px;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    /* height: 60px;  */
+  }
+  
+  .text-footer {
+    font-size: 15px;
+  }
+  
+  .footer-hyper-link {
+    text-decoration: none;
+    color: white;
+  }
+  
+  @media screen and (max-width: 900px) {
+    
+    .footer-container {
+      flex-direction: column;
+      height: auto; 
+      padding: 20px; 
+    }
+  
+    .footer-text {
+      font-size: 15px;
+    }
+  }
+  
