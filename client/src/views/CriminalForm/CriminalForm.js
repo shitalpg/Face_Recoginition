@@ -27,9 +27,13 @@ const CriminalForm = () => {
 
   
   const loadData = async () => {
-    const response = await axios.get('/criminalRecords');
-
-    setData(response?.data?.data)
+    try {
+      const response = await axios.get('http://localhost:8080/criminal-record/get-all-criminal');
+      setData(response?.data?.data);
+    } catch (error) {
+      console.error('Error loading criminal records:', error);
+      showToast('Failed to load criminal records. Please try again later.', 'error', 4000);
+    }
   }
 
   useEffect(() => {
@@ -58,7 +62,7 @@ const CriminalForm = () => {
   const saveCriminalData = async () => {
    
 
-    const response = await axios.post("/criminalRecord", {
+    const response = await axios.post("http://localhost:8080/criminal-record/insert", {
       criminalID,
       address,
       Name,
@@ -347,9 +351,9 @@ const CriminalForm = () => {
         </form>
       </div>
       
-      
-      <button type='button'className="bg-slate-950 hover:bg-blue-800 text-white  py-2 px-5 my-4 rounded-lg text-xl block mx-auto"  ><Link to="/criminalData" className='text-white no-underline'>  Get Criminal Data →</Link></button>
-    
+      <Link to="/criminalData" className='text-white no-underline'>
+      <button type='button'className="bg-slate-950 hover:bg-blue-800 text-white  py-2 px-5 my-4 rounded-lg text-xl block mx-auto"  >  Get Criminal Data →</button></Link>
+     
          
 
      

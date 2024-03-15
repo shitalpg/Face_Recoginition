@@ -11,7 +11,7 @@ const CriminalRecordSchema = new Schema({
         required: true
     },
 
-    Name: {
+    name: {
         type: String,
         required: true
     },

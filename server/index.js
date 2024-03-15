@@ -83,7 +83,7 @@ app.post("/criminalRecord", async (req, res) => {
     const {
        criminalID,
         address,
-        Name,
+        name,
         state,
         image,
         crimeInvloved,
@@ -96,7 +96,7 @@ app.post("/criminalRecord", async (req, res) => {
         const criminalRecord = new CriminalRecord({
            criminalID,
             address,
-            Name,
+            name,
             state,
            image,
             crimeInvloved,
@@ -161,11 +161,11 @@ app.delete('/criminalRecord/:_id', async (req, res) => {
 
 app.put('/criminalRecord/:_id', async (req, res) => {
     const { _id } = req.params;
-    const {  criminalID, address, Name, state, photo, crimeInvloved, dob, arrestedDate, age, gender } = req.body;
+    const {  criminalID, address, name, state, photo, crimeInvloved, dob, arrestedDate, age, gender } = req.body;
 
     await CriminalRecord.updateOne( { _id: _id },
       {
-        $set: { criminalID, address, Name, state, photo, crimeInvloved, dob, arrestedDate, age, gender },
+        $set: { criminalID, address, name, state, photo, crimeInvloved, dob, arrestedDate, age, gender },
       }
     );
 
@@ -190,7 +190,7 @@ app.put('/criminalRecord/:_id', async (req, res) => {
 app.post("/missingPerson", async (req, res) => {
     const {
         address,
-        Name,
+        name,
         state,
         image,
         dob,
@@ -200,7 +200,7 @@ app.post("/missingPerson", async (req, res) => {
    
         const missingPersonRecord = new MissingPersonRecord({
             address,
-            Name,
+            name,
             state,
             image,
             dob,

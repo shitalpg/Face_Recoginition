@@ -38,9 +38,10 @@ function CriminalData() {
         <div className='data-container'>
         {
           data?.map((obj, index) => {
-            const { Name,
+            const { 
               _id,
               criminalID,
+              name,
               age,
               arrestedDate,
               crimeInvloved,
@@ -52,7 +53,7 @@ function CriminalData() {
             return (
               <div className='data-card space-y-2'>
                     <img src={image} className='w-[100%] mx-auto mb-2' />     
-                <p> <b>Name : </b> {Name} </p>
+                <p> <b>Name : </b> {name} </p>
                 <p> <b>Criminal Id : </b>{criminalID}</p>
                 <p> <b>gender : </b> {gender}</p>
                 <p> <b>Age : </b> {age}</p>
