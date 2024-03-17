@@ -260,35 +260,133 @@ app.delete('/missingperson/:_id', async (req, res) => {
 })
 
 
-//face detection
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-app.get('/api/match-face', upload.single('image'), async (req, res) => {
-    // const client = new MongoClient('mongodb://localhost:27017', { useUnifiedTopology: true });
+// //face detection
+// const storage = multer.memoryStorage();
+// const upload = multer({ storage: storage });
+// app.get('/api/match-face', upload.single('image'), async (req, res) => {
+//     // const client = new MongoClient('mongodb://localhost:27017', { useUnifiedTopology: true });
   
+//     try {
+//     //   await client.connect();
+//     //   const database = client.db('criminal-face-recognition');
+//     //   const collection = database.collection('criminalrecords');
+  
+//     const faceDescriptor = faceDescriptor(req.file.buffer); // Get face descriptor from the uploaded image
+
+//     const storedDescriptors = await collection.find({}, { projection: { _id: 0, faceDescriptor: 1 } }).toArray();
+
+//     const isMatched = storedDescriptors.some((storedDescriptor) => {
+//       // Compare face descriptors using your matching logic (e.g., Euclidean distance)
+//       const distance = faceapi.euclideanDistance(faceDescriptor, storedDescriptor.faceDescriptor);
+//       return distance < 0.6; // Adjust the threshold based on your use case
+//     });
+
+//       res.json({ isMatched: true });
+//     } catch (error) {
+//       console.error('Error matching face:', error);
+//       res.status(500).json({ error: 'Internal Server Error' });
+//     } finally {
+//       await client.close();
+//     }
+//   })
+
+
+
+  
+
+
+async function loadModelsAndStartWebcam() {
     try {
-    //   await client.connect();
-    //   const database = client.db('criminal-face-recognition');
-    //   const collection = database.collection('criminalrecords');
-  
-    const faceDescriptor = faceDescriptor(req.file.buffer); // Get face descriptor from the uploaded image
-
-    const storedDescriptors = await collection.find({}, { projection: { _id: 0, faceDescriptor: 1 } }).toArray();
-
-    const isMatched = storedDescriptors.some((storedDescriptor) => {
-      // Compare face descriptors using your matching logic (e.g., Euclidean distance)
-      const distance = faceapi.euclideanDistance(faceDescriptor, storedDescriptor.faceDescriptor);
-      return distance < 0.6; // Adjust the threshold based on your use case
-    });
-
-      res.json({ isMatched: true });
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+        ]);
+        startWebcam();
     } catch (error) {
-      console.error('Error matching face:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    } finally {
-      await client.close();
+        console.error('Error loading models:', error);
     }
-  })
+}
+
+// Start webcam and perform face detection
+function startWebcam() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+            videoRef.current.srcObject = stream;
+
+            videoRef.current.addEventListener('play', async () => {
+                // Create canvas for drawing
+                canvas = faceapi.createCanvasFromMedia(videoRef.current);
+                canvasRef.current.append(canvas);
+
+                // Match canvas dimensions with video dimensions
+                const displaySize = { width: videoRef.current.videoWidth, height: videoRef.current.videoHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                // Perform face detection in a loop
+                setInterval(async () => {
+                    const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+                        // .withFaceLandmarks()
+                        .withFaceExpressions();
+
+                    // Draw results on canvas
+                    if (detections) {
+                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                        faceapi.draw.drawDetections(canvas, faceapi.resizeResults([detections], displaySize));
+                        // faceapi.draw.drawFaceLandmarks(canvas, faceapi.resizeResults([detections], displaySize));
+                        faceapi.draw.drawFaceExpressions(canvas, faceapi.resizeResults([detections], displaySize));
+                    }
+                }, 100);
+            });
+        })
+        .catch((error) => {
+            console.error('Error accessing webcam:', error);
+        });
+    // This function should start the webcam and perform face detection
+}
+
+// Match faces with image using data from the database
+async function matchFacesWithImage(currentImage) {
+    try {
+        // Perform face detection on the current image
+        const detections = await faceapi.detectSingleFace(currentImage).withFaceDescriptor();
+
+        // Fetch face recognition data from the database
+        const savedDescriptors = await FaceRecognitionData.find({}, 'faceDescriptor');
+
+        // Compare current face descriptor with saved descriptors
+        for (const savedDescriptor of savedDescriptors) {
+            const distance = faceapi.euclideanDistance(detections.descriptor, savedDescriptor.faceDescriptor);
+            if (distance < 0.6) { // Adjust the threshold as needed
+                return { success: true, message: 'Face match found' };
+            }
+        }
+        return { success: false, message: 'No match found' };
+    } catch (error) {
+        console.error('Error matching faces with image:', error);
+        return { success: false, message: 'Internal server error' };
+    }
+}
+
+// API endpoint to find face recognition data
+app.post('/find-face-recognition-data', async (req, res) => {
+    try {
+        const currentImage = req.body.image; // Assuming the image is sent in the request body
+
+        // Call function to match faces with image using data from the database
+        const matchResult = await matchFacesWithImage(currentImage);
+
+        if (matchResult.success) {
+            res.status(200).json({ success: true, message: 'Face match successful' });
+        } else {
+            res.status(200).json({ success: false, message: 'No match found' });
+        }
+    } catch (error) {
+        console.error('Error finding face recognition data:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
 
 const PORT = process.env.PORT || 3000;
 
