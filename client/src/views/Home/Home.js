@@ -9,12 +9,15 @@ import { FaClipboardList } from "react-icons/fa";
 import { BsRocketTakeoff } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import Footer from "../../component/Footer/Footer";
+import FaceDetection from "../FaceDetection/FaceDetection";
+
 function Home() {
   return (
     <div>
+      {/* <FaceDetection/> */}
       <div>
-        <Navbar />
-      </div>
+       <Navbar />
+       </div>
 
       <div class="container mx-auto flex  items-center  min-[320px]:flex-col md:flex-row justify-evenly">
         <div class="md:w-1/2 p-4">

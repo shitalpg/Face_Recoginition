@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import swal from 'sweetalert';
 
 const CriminalForm = () => {
-  const [Name, setName] = useState("");
+  const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [age, setAge] = useState("");
   const [arrestedDate, setArrestedDate] = useState("");
@@ -65,7 +65,7 @@ const CriminalForm = () => {
     const response = await axios.post("http://localhost:8080/criminal-record/insert", {
       criminalID,
       address,
-      Name,
+      name,
       state,
       image,
       crimeInvloved,
@@ -205,7 +205,7 @@ const CriminalForm = () => {
                   placeholder='Enter your  name'
                   id="name"
                   className='input-box'
-                  value={Name}
+                  value={name}
                   onChange={(e) => {
                     setName(e.target.value);
                   }}
