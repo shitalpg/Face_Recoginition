@@ -1,17 +1,20 @@
 import express from "express";
 import mongoose from "mongoose";
 import User from "./models/User.js";
+import * as faceapi from 'face-api.js';
 import dotenv from "dotenv";
 
 dotenv.config();
 
 import CriminalRecord from './models/CriminalRecord.js';
-import multer from "multer";
+// import multer from "multer";
 import MissingPersonRecord from "./models/MissingPerson.js";
 
+import bodyParser from 'body-parser';
+import nodemailer from 'nodemailer';
 
-const app = express()
-app.use(express.json());
+const app = express();
+app.use(bodyParser.json());
 
 
 async function connectMongoDB() {
@@ -21,6 +24,103 @@ async function connectMongoDB() {
     }
 }
 connectMongoDB();
+
+
+
+
+
+async function loadModelsAndStartWebcam() {
+    try {
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+        ]);
+        startWebcam();
+    } catch (error) {
+        console.error('Error loading models:', error);
+    }
+}
+
+// Start webcam and perform face detection
+function startWebcam() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+            videoRef.current.srcObject = stream;
+
+            videoRef.current.addEventListener('play', async () => {
+                // Create canvas for drawing
+                canvas = faceapi.createCanvasFromMedia(videoRef.current);
+                canvasRef.current.append(canvas);
+
+                // Match canvas dimensions with video dimensions
+                const displaySize = { width: videoRef.current.videoWidth, height: videoRef.current.videoHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                // Perform face detection in a loop
+                setInterval(async () => {
+                    const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+                        // .withFaceLandmarks()
+                        .withFaceExpressions();
+
+                    // Draw results on canvas
+                    if (detections) {
+                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                        faceapi.draw.drawDetections(canvas, faceapi.resizeResults([detections], displaySize));
+                        // faceapi.draw.drawFaceLandmarks(canvas, faceapi.resizeResults([detections], displaySize));
+                        faceapi.draw.drawFaceExpressions(canvas, faceapi.resizeResults([detections], displaySize));
+                    }
+                }, 100);
+            });
+        })
+        .catch((error) => {
+            console.error('Error accessing webcam:', error);
+        });
+    // This function should start the webcam and perform face detection
+}
+
+// Match faces with image using data from the database
+async function matchFacesWithImage(currentImage) {
+    try {
+        // Perform face detection on the current image
+        const detections = await faceapi.detectSingleFace(currentImage).withFaceDescriptor();
+
+        // Fetch face recognition data from the database
+        const savedDescriptors = await FaceRecognitionData.find({}, 'faceDescriptor');
+
+        // Compare current face descriptor with saved descriptors
+        for (const savedDescriptor of savedDescriptors) {
+            const distance = faceapi.euclideanDistance(detections.descriptor, savedDescriptor.faceDescriptor);
+            if (distance < 0.6) { // Adjust the threshold as needed
+                return { success: true, message: 'Face match found' };
+            }
+        }
+        return { success: false, message: 'No match found' };
+    } catch (error) {
+        console.error('Error matching faces with image:', error);
+        return { success: false, message: 'Internal server error' };
+    }
+}
+
+// API endpoint to find face recognition data
+app.post('/find-face-recognition-data', async (req, res) => {
+    try {
+        const currentImage = req.body.image; // Assuming the image is sent in the request body
+
+        // Call function to match faces with image using data from the database
+        const matchResult = await matchFacesWithImage(currentImage);
+
+        if (matchResult.success) {
+            res.status(200).json({ success: true, message: 'Face match successful' });
+        } else {
+            res.status(200).json({ success: false, message: 'No match found' });
+        }
+    } catch (error) {
+        console.error('Error finding face recognition data:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
 
 
 
@@ -135,7 +235,15 @@ app.get('/criminalRecords',async(req,res)=>{
         message:'Criminal Record fetched successfully'
     })
 });
-
+app.get('/criminalRecords', async (req, res) => {
+    const { image } = req.query
+    const criminal = await CriminalRecord.findOne({ image: image })
+    res.json({
+        "result": true,
+        "prductc": criminal,
+        "message": "Criminal successfull recignize"
+    })
+})
 
 // delete criminal data 
 
@@ -146,7 +254,7 @@ app.delete('/criminalRecord/:_id', async (req, res) => {
 
     res.json({
         success: true,
-        message: `Successfully deleted Criminal data`
+        message: 'Successfully deleted Criminal data'
     });
 }  catch (err) {
     res.json({
@@ -248,7 +356,7 @@ app.delete('/missingperson/:_id', async (req, res) => {
 
     res.json({
         success: true,
-        message: `Successfully deleted missing person's data`
+        message:` Successfully deleted missing person's data`
     });
 }  catch (err) {
     res.json({
@@ -260,7 +368,53 @@ app.delete('/missingperson/:_id', async (req, res) => {
 })
 
 
-// //face detection
+
+
+// Function to send email
+function sendEmail(personName) {
+   
+    // Create a nodemailer transporter
+    const transporter = nodemailer.createTransport({
+        service: 'your_email_service_provider',
+        auth: {
+          user: 'your_email_address',
+          pass: 'your_email_password'
+        }
+      });
+      
+      // Endpoint to send email
+      app.post('/send-email', (req, res) => {
+        const { name, email, data } = req.body;
+      
+        // Construct email message
+        const mailOptions = {
+            from: 'bandinikohare16@gmail.com',
+            to: 'bandinikohare30@gmail.com',
+            subject: 'Face Detected!',
+          text:` Hello ${name}, Face Detected! Here's the data: ${data}`
+        };
+      
+        // Send email
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error('Error sending email:', error);
+            res.status(500).send('Error sending email');
+          } else {
+            console.log('Email sent:', info.response);
+            res.status(200).send('Email sent successfully');
+          }
+        });
+      });
+    
+      }
+    
+    
+    
+    
+    
+
+
+//face detection
 // const storage = multer.memoryStorage();
 // const upload = multer({ storage: storage });
 // app.get('/api/match-face', upload.single('image'), async (req, res) => {
@@ -292,108 +446,9 @@ app.delete('/missingperson/:_id', async (req, res) => {
 
 
 
-  
-
-
-async function loadModelsAndStartWebcam() {
-    try {
-        await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-        ]);
-        startWebcam();
-    } catch (error) {
-        console.error('Error loading models:', error);
-    }
-}
-
-// Start webcam and perform face detection
-function startWebcam() {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then((stream) => {
-            videoRef.current.srcObject = stream;
-
-            videoRef.current.addEventListener('play', async () => {
-                // Create canvas for drawing
-                canvas = faceapi.createCanvasFromMedia(videoRef.current);
-                canvasRef.current.append(canvas);
-
-                // Match canvas dimensions with video dimensions
-                const displaySize = { width: videoRef.current.videoWidth, height: videoRef.current.videoHeight };
-                faceapi.matchDimensions(canvas, displaySize);
-
-                // Perform face detection in a loop
-                setInterval(async () => {
-                    const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-                        // .withFaceLandmarks()
-                        .withFaceExpressions();
-
-                    // Draw results on canvas
-                    if (detections) {
-                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                        faceapi.draw.drawDetections(canvas, faceapi.resizeResults([detections], displaySize));
-                        // faceapi.draw.drawFaceLandmarks(canvas, faceapi.resizeResults([detections], displaySize));
-                        faceapi.draw.drawFaceExpressions(canvas, faceapi.resizeResults([detections], displaySize));
-                    }
-                }, 100);
-            });
-        })
-        .catch((error) => {
-            console.error('Error accessing webcam:', error);
-        });
-    // This function should start the webcam and perform face detection
-}
-
-// Match faces with image using data from the database
-async function matchFacesWithImage(currentImage) {
-    try {
-        // Perform face detection on the current image
-        const detections = await faceapi.detectSingleFace(currentImage).withFaceDescriptor();
-
-        // Fetch face recognition data from the database
-        const savedDescriptors = await FaceRecognitionData.find({}, 'faceDescriptor');
-
-        // Compare current face descriptor with saved descriptors
-        for (const savedDescriptor of savedDescriptors) {
-            const distance = faceapi.euclideanDistance(detections.descriptor, savedDescriptor.faceDescriptor);
-            if (distance < 0.6) { // Adjust the threshold as needed
-                return { success: true, message: 'Face match found' };
-            }
-        }
-        return { success: false, message: 'No match found' };
-    } catch (error) {
-        console.error('Error matching faces with image:', error);
-        return { success: false, message: 'Internal server error' };
-    }
-}
-
-// API endpoint to find face recognition data
-app.post('/find-face-recognition-data', async (req, res) => {
-    try {
-        const currentImage = req.body.image; // Assuming the image is sent in the request body
-
-        // Call function to match faces with image using data from the database
-        const matchResult = await matchFacesWithImage(currentImage);
-
-        if (matchResult.success) {
-            res.status(200).json({ success: true, message: 'Face match successful' });
-        } else {
-            res.status(200).json({ success: false, message: 'No match found' });
-        }
-    } catch (error) {
-        console.error('Error finding face recognition data:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-});
-
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`The server is Running on Port ${PORT} 🚀`);
 });
-
-
-  
-  

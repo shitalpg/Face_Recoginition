@@ -18,8 +18,8 @@ function Home() {
 
 
       <div>
-        <Navbar />
-      </div>
+       <Navbar />
+       </div>
 
       <div class="container mx-auto flex  items-center  min-[320px]:flex-col md:flex-row justify-evenly">
         <div class="md:w-1/2 p-4">

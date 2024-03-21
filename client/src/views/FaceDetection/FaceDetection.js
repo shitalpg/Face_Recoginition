@@ -7,17 +7,18 @@ function FaceDetection() {
   const [data, setData] = useState([]);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  
+  const loadData = async () => {
+        const response = await axios.get('/missingPersons');
+    
+        setData(response?.data?.data)
+      }
+    
+      useEffect(() => {
+        loadData();
+      }, []);
 
   useEffect(() => {
-    const loadDatabase = async () => {
-      try {
-        const response = await axios.get('/criminalRecords'); 
-        setData(response.data);
-      } catch (error) {
-        console.error('Error loading database:', error);
-      }
-    };
-
     const loadModelsAndStartWebcam = async () => {
       try {
         await Promise.all([
@@ -44,11 +45,15 @@ function FaceDetection() {
     };
 
     const recognizeFaces = async () => {
-      if (data.length === 0) {
-        console.error('No data in the database.');
+      const labeledDescriptors = await getLabeledFaceDescriptors();
+    
+      if (labeledDescriptors.length === 0) {
+        console.error('No labeled face descriptors found.');
         return;
       }
-
+    
+      const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+    
       videoRef.current.addEventListener('play', async () => {
         const canvas = faceapi.createCanvasFromMedia(videoRef.current);
         canvasRef.current.append(canvas);
@@ -62,50 +67,66 @@ function FaceDetection() {
             .withFaceDescriptors();
 
           const resizedDetections = faceapi.resizeResults(detections, displaySize);
-
+          // canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    
           resizedDetections.forEach(detection => {
-            const faceDescriptor = detection.descriptor;
-
-            // Match the detected face with the faces in the database
-            const bestMatch = findBestMatch(faceDescriptor, data);
-
-            // If a match is found, display the name of the matched person
-            if (bestMatch) {
-              showToast(`Matched with: ${bestMatch}`, 'success', 3000);
+            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+            const box = detection.detection.box;
+            const drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString() });
+            drawBox.draw(canvas);
+    
+            // Check if the face matches any criminal
+            if (bestMatch.label !== 'unknown') {
+           
+              const matchedCriminal = data.find(criminal => criminal.Name === bestMatch.label);
+              if (matchedCriminal) {
+                showToast(`Matched with criminal: ${matchedCriminal.Name}`, 'success', 3000);
+              
+                  // loadData(matchedCriminal);
+              
+              }
             }
           });
         }, 100);
       });
     };
+    
+   
 
-    const findBestMatch = (faceDescriptor, data) => {
-      let bestMatchName = 'unknown';
-      let minDistance = Number.MAX_VALUE;
+    const getLabeledFaceDescriptors = async () => {
+      const labeledDescriptors = [];
 
-      for (const person of data) {
-        for (const descriptor of person.descriptors) {
-          const distance = faceapi.euclideanDistance(descriptor, faceDescriptor);
-          if (distance < minDistance) {
-            minDistance = distance;
-            bestMatchName = person.name;
-          }
+      for (const criminal of data) {
+        const descriptions = [];
+        try {
+          const img = await faceapi.fetchImage(criminal.image);
+          const detection = await faceapi.detectSingleFace(img)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          descriptions.push(detection.descriptor);
+        } catch (error) {
+          console.error('Error fetching image or detecting face:', error);
+        }
+
+        if (descriptions.length > 0) {
+          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(criminal.Name, descriptions));
         }
       }
 
-      return bestMatchName;
+      return labeledDescriptors;
     };
 
-    loadDatabase();
     loadModelsAndStartWebcam();
     recognizeFaces();
   }, [data]);
 
   return (
     <div className="container">
-      <div>
-        <video ref={videoRef} id="video" width="300" className="current-image" height="250" autoPlay></video>
-        <div className="canvas" ref={canvasRef}></div>
-      </div>
+     <div>
+     <video ref={videoRef} id="video" width="300" className="current-image" height="250" autoPlay></video>
+      <div className="canvas" ref={canvasRef}></div>
+     </div>
+   
     </div>
   );
 }
