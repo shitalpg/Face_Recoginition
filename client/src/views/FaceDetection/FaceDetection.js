@@ -2,21 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import showToast from 'crunchy-toast';
+import "./FaceDetection.css";
 
-function FaceDetection() {
+function CriminalData() {
   const [data, setData] = useState([]);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   const loadData = async () => {
-        const response = await axios.get('/missingPersons');
-    
-        setData(response?.data?.data)
-      }
-    
-      useEffect(() => {
-        loadData();
-      }, []);
+    try {
+      const response = await axios.get('/criminalRecords');
+      setData(response?.data?.data);
+    } catch (error) {
+      console.error('Error fetching criminal records:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []); // Fetch criminal records once when the component mounts
 
   useEffect(() => {
     const loadModelsAndStartWebcam = async () => {
@@ -46,14 +50,14 @@ function FaceDetection() {
 
     const recognizeFaces = async () => {
       const labeledDescriptors = await getLabeledFaceDescriptors();
-    
+
       if (labeledDescriptors.length === 0) {
         console.error('No labeled face descriptors found.');
         return;
       }
-    
+
       const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
-    
+
       videoRef.current.addEventListener('play', async () => {
         const canvas = faceapi.createCanvasFromMedia(videoRef.current);
         canvasRef.current.append(canvas);
@@ -67,31 +71,24 @@ function FaceDetection() {
             .withFaceDescriptors();
 
           const resizedDetections = faceapi.resizeResults(detections, displaySize);
-          // canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    
+
           resizedDetections.forEach(detection => {
             const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
             const box = detection.detection.box;
             const drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString() });
             drawBox.draw(canvas);
-    
-            // Check if the face matches any criminal
+
             if (bestMatch.label !== 'unknown') {
-           
-              const matchedCriminal = data.find(criminal => criminal.Name === bestMatch.label);
+              const matchedCriminal = data.find(criminal => criminal.name === bestMatch.label);
               if (matchedCriminal) {
-                showToast(`Matched with criminal: ${matchedCriminal.Name}`, 'success', 3000);
-              
-                  // loadData(matchedCriminal);
-              
+                showToast(`Matched with criminal: ${matchedCriminal.name}`, 'success', 3000);
+                alert(`Matched with criminal: ${matchedCriminal.name}`);
               }
             }
           });
         }, 100);
       });
     };
-    
-   
 
     const getLabeledFaceDescriptors = async () => {
       const labeledDescriptors = [];
@@ -109,7 +106,7 @@ function FaceDetection() {
         }
 
         if (descriptions.length > 0) {
-          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(criminal.Name, descriptions));
+          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(criminal.name, descriptions));
         }
       }
 
@@ -118,17 +115,14 @@ function FaceDetection() {
 
     loadModelsAndStartWebcam();
     recognizeFaces();
-  }, [data]);
+  }, [data]); // Fetch criminal records whenever data changes
 
   return (
     <div className="container">
-     <div>
-     <video ref={videoRef} id="video" width="300" className="current-image" height="250" autoPlay></video>
+      <video ref={videoRef} id="video" width="600" className="current-image" height="550" autoPlay></video>
       <div className="canvas" ref={canvasRef}></div>
-     </div>
-   
     </div>
   );
 }
 
-export default FaceDetection;
+export default CriminalData;
