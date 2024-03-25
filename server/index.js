@@ -254,7 +254,7 @@ app.delete('/criminalRecord/:_id', async (req, res) => {
 
     res.json({
         success: true,
-        message: `Successfully deleted Criminal data`
+        message: 'Successfully deleted Criminal data'
     });
 }  catch (err) {
     res.json({
@@ -356,7 +356,7 @@ app.delete('/missingperson/:_id', async (req, res) => {
 
     res.json({
         success: true,
-        message: `Successfully deleted missing person's data`
+        message:` Successfully deleted missing person's data`
     });
 }  catch (err) {
     res.json({
@@ -391,7 +391,7 @@ function sendEmail(personName) {
             from: 'bandinikohare16@gmail.com',
             to: 'bandinikohare30@gmail.com',
             subject: 'Face Detected!',
-          text: `Hello ${name}, Face Detected! Here's the data: ${data}`
+          text:` Hello ${name}, Face Detected! Here's the data: ${data}`
         };
       
         // Send email
@@ -452,7 +452,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`The server is Running on Port ${PORT} 🚀`);
 });
-
-
-  
-  

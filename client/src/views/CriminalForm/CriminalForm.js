@@ -354,9 +354,6 @@ const CriminalForm = () => {
       <Link to="/criminalData" className='text-white no-underline'>
       <button type='button'className="bg-slate-950 hover:bg-blue-800 text-white  py-2 px-5 my-4 rounded-lg text-xl block mx-auto"  >  Get Criminal Data →</button></Link>
      
-         
-
-     
 
       {/* <Footer /> */}
     </>

@@ -2,20 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import showToast from 'crunchy-toast';
+import "./FaceDetection.css";
 
-function FaceDetection() {
+function CriminalData() {
   const [data, setData] = useState([]);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   const loadData = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/criminal-record/criminalrecords');
+      const response = await axios.get('/criminalRecords');
       setData(response?.data?.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching criminal records:', error);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, []); // Fetch criminal records once when the component mounts
 
   useEffect(() => {
     const loadModelsAndStartWebcam = async () => {
@@ -44,12 +49,12 @@ function FaceDetection() {
     };
 
     const recognizeFaces = async () => {
-      if (data.length === 0) {
-        console.error('No data available for face recognition.');
+      const labeledDescriptors = await getLabeledFaceDescriptors();
+
+      if (labeledDescriptors.length === 0) {
+        console.error('No labeled face descriptors found.');
         return;
       }
-
-      const labeledDescriptors = data.map(criminal => new faceapi.LabeledFaceDescriptors(criminal.name, criminal.descriptors));
 
       const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
 
@@ -66,7 +71,6 @@ function FaceDetection() {
             .withFaceDescriptors();
 
           const resizedDetections = faceapi.resizeResults(detections, displaySize);
-          canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
           resizedDetections.forEach(detection => {
             const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
@@ -74,11 +78,11 @@ function FaceDetection() {
             const drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString() });
             drawBox.draw(canvas);
 
-            // Check if the face matches any criminal
             if (bestMatch.label !== 'unknown') {
               const matchedCriminal = data.find(criminal => criminal.name === bestMatch.label);
               if (matchedCriminal) {
                 showToast(`Matched with criminal: ${matchedCriminal.name}`, 'success', 3000);
+                alert(`Matched with criminal: ${matchedCriminal.name}`);
               }
             }
           });
@@ -86,20 +90,39 @@ function FaceDetection() {
       });
     };
 
-    loadData();
+    const getLabeledFaceDescriptors = async () => {
+      const labeledDescriptors = [];
+
+      for (const criminal of data) {
+        const descriptions = [];
+        try {
+          const img = await faceapi.fetchImage(criminal.image);
+          const detection = await faceapi.detectSingleFace(img)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          descriptions.push(detection.descriptor);
+        } catch (error) {
+          console.error('Error fetching image or detecting face:', error);
+        }
+
+        if (descriptions.length > 0) {
+          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(criminal.name, descriptions));
+        }
+      }
+
+      return labeledDescriptors;
+    };
+
     loadModelsAndStartWebcam();
     recognizeFaces();
-  }, [data]);
+  }, [data]); // Fetch criminal records whenever data changes
 
   return (
     <div className="container">
-      <h1>Hello</h1>
-      <div>
-        <video ref={videoRef} id="video" width="600px" className="current-image" height="550px" autoPlay></video>
-        <div className="canvas" ref={canvasRef}></div><br/>
-      </div><br/>
+      <video ref={videoRef} id="video" width="600" className="current-image" height="550" autoPlay></video>
+      <div className="canvas" ref={canvasRef}></div>
     </div>
   );
 }
 
-export default FaceDetection;
+export default CriminalData;

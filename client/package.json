@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@material-ui/lab": "^4.0.0-alpha.61",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -11,8 +12,9 @@
     "cors": "^2.8.5",
     "crunchy-toast": "^0.1.6",
     "face-api.js": "^0.22.2",
-    "faceapi": "^1.0.1",
     "image-diff": "^2.0.0",
+    "init": "^0.1.2",
+    "npx": "^10.2.2",
     "path-browserify": "^1.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -20,7 +22,6 @@
     "react-router": "^6.22.3",
     "react-router-dom": "^6.22.3",
     "react-scripts": "5.0.1",
-    "react-use-face-detection": "^1.0.1",
     "react-webcam": "^7.2.0",
     "stream-browserify": "^3.0.0",
     "sweetalert": "^2.1.2",
@@ -51,5 +52,8 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3000"
+  "proxy": "http://localhost:3000",
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+  }
 }
